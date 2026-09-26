@@ -373,6 +373,19 @@ export function createSettings(db) {
       }
       setSetting("feature_flags", JSON.stringify(merged));
       return merged;
+    },
+
+    /**
+     * 通用 kv 透传（本机定制）：distill2/dream3 引擎把持久状态（上次成功时间、
+     * pending 计数、失败退避、豁免指纹）存进 user_settings 表，重启/关机不丢。
+     * 命名空间由调用方保证（"dream3_state" / "dream3_kv"），不经 feature_flags
+     * 白名单，面板不可见。
+     */
+    getKV(key) {
+      return getSetting(key);
+    },
+    setKV(key, value) {
+      setSetting(key, String(value));
     }
   };
 }
