@@ -1,6 +1,8 @@
 <p align="center"><strong>中文 | <a href="docs/SEMANTIC.md">English（语义增强）</a></strong></p>
 
-# dsh-mneme
+# dsh-mneme-moe4all
+
+> MoE4All-maintained edition of `@modusensus/dsh-mneme`. See [UPSTREAM.md](UPSTREAM.md) for the exact source checkpoint, attribution, and purpose of this independent repository.
 
 [![npm version](https://img.shields.io/npm/v/@modusensus/dsh-mneme?color=blue&label=npm)](https://www.npmjs.com/package/@modusensus/dsh-mneme)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
