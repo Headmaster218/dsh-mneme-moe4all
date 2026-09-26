@@ -1,0 +1,102 @@
+{
+  "name": "@modusensus/dsh-mneme",
+  "description": "Cross-session memory plugin for DeepSeek Harness with autoDream consolidation: SQLite store, Markdown mirrors, 7 model tools, automatic injection, session summarization, user profile/rules, custom slash commands, vector (semantic) search, and a Web GUI panel",
+  "version": "0.7.29",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modusensus/dsh-mneme.git"
+  },
+  "homepage": "https://github.com/modusensus/dsh-mneme#readme",
+  "bugs": {
+    "url": "https://github.com/modusensus/dsh-mneme/issues"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "bin": {
+    "dsh-mneme": "bin/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "src",
+    "scripts",
+    "test",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "client": {
+      "inject": [
+        "slots",
+        "locale"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "dsh-better-sidebar": "^0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "c8": "^12.0.0",
+    "lucide": "^1.42.0"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-lib.js",
+    "prepack": "npm run sync",
+    "test": "node --test test/*.test.js",
+    "test:coverage": "c8 node --test test/*.test.js",
+    "e2e": "node scripts/e2e-dsh.js",
+    "stress": "node scripts/stress-dsh.js"
+  },
+  "c8": {
+    "reporter": [
+      "text",
+      "lcov"
+    ],
+    "exclude": [
+      "lib/**",
+      "test/**",
+      "**/*.test.js"
+    ]
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "morphicons": "^1.7.1"
+  },
+  "overrides": {
+    "adm-zip": "0.6.0"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.24.3": true,
+    "sharp@0.34.5": true
+  }
+}
