@@ -70,7 +70,7 @@ export class LocalReranker {
     this.device = opts.device || "cpu";
     this.cacheDir =
       String(opts.cacheDir ?? "").trim() ||
-      path.join(os.homedir(), ".dsh", "mneme", "models");
+      path.join(process.env.DSH_HOME || path.join(os.homedir(), ".dsh"), "mneme", "models");
     this.logger = opts.logger ?? null;
     this.engineFactory = opts.engineFactory || defaultPipelineLoader;
     // Injectable seam: async (query, passage) => number. When set, init()

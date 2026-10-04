@@ -2,7 +2,7 @@ import z from "@deepseek-ai/schemastery";
 import { TYPE_DECAY_DEFAULTS } from "./heat.js";
 
 export const Config = z.object({
-  memoryDir: z.string().default("~/.dsh/memory"),
+  memoryDir: z.string().default(""),
   autoInject: z.boolean().default(true),
   autoSummarize: z.boolean().default(true),
   // Optional model override for summarization. When both are non-empty, they

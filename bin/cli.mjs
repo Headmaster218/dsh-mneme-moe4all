@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 
 const CLI_NAME = 'dsh-mneme';
 const DEFAULT_URL = 'http://127.0.0.1:8790';
-const CONFIG_DIR = path.join(os.homedir(), '.dsh-mneme');
+const CONFIG_DIR = process.env.DSH_HOME
+  ? path.join(process.env.DSH_HOME, 'mneme', 'cli')
+  : path.join(os.homedir(), '.dsh-mneme');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'cli.json');
 const MEMORY_TYPES = ['preference', 'project', 'decision', 'summary', 'history'];
 const SEARCH_MODES = ['keyword', 'vector', 'auto'];

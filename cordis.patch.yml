@@ -4,7 +4,6 @@
     - id: dsh-mneme-moe4all
       name: dsh-mneme-moe4all
       config:
-        memoryDir: ~/.dsh/memory
         autoInject: true
         autoSummarize: true
         maxInjectedItems: 5
