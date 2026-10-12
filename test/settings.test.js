@@ -100,6 +100,30 @@ test("vector config disabled value is stored as false", () => {
   store.close();
 });
 
+test("vector config inherits distribution defaults without changing standalone defaults", () => {
+  const store = createStore(":memory:");
+  const settings = createSettings(store.db, {
+    enabled: true,
+    baseUrl: " http://127.0.0.1:8080/v1/ ",
+    apiKey: " moe4all-local ",
+    model: " Qwen3-Embedding-0.6B-Q8_0 "
+  });
+  assert.deepEqual(settings.getVectorConfig(), {
+    enabled: true,
+    baseUrl: "http://127.0.0.1:8080/v1",
+    apiKey: "moe4all-local",
+    model: "Qwen3-Embedding-0.6B-Q8_0"
+  });
+  settings.setVectorConfig({ enabled: false, baseUrl: "", apiKey: "", model: "" });
+  assert.deepEqual(settings.getVectorConfig(), {
+    enabled: false,
+    baseUrl: "http://127.0.0.1:8080/v1",
+    apiKey: "moe4all-local",
+    model: "Qwen3-Embedding-0.6B-Q8_0"
+  });
+  store.close();
+});
+
 test("panel mode defaults to standard and round-trips", () => {
   const { store, settings } = setup();
   assert.equal(settings.getPanelMode(), "standard");

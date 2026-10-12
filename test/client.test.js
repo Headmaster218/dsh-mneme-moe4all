@@ -41,6 +41,13 @@ test("memory entry registers into the sidebar foot slot", () => {
   );
 });
 
+test("distillation status is session-scoped and driven by the activity endpoint", () => {
+  assert.ok(clientSource.includes('ctx.slots.inject("conversation.chat.status"'));
+  assert.ok(clientSource.includes('apiFetch("/api/dsh-mneme/activity")'));
+  assert.ok(clientSource.includes('body.sessions.includes(sessionId)'));
+  assert.ok(clientSource.includes('memory.activity.distilling'));
+});
+
 // The tab era is over: the in-conversation memory tab fought the floating
 // composer and squeezed the session layout, so the library no longer
 // registers as a conversation view. The sidebar entry opens the centered

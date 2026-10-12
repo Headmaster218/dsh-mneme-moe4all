@@ -151,6 +151,16 @@ export const Config = z.object({
   // "local" runs an ONNX model in-process; "ollama" calls a local Ollama.
   embedProvider: z.union([z.const("openai"), z.const("local"), z.const("ollama")]).default("openai"),
 
+  // Optional bundle-level defaults for the OpenAI-compatible embedding path.
+  // Standalone Mneme leaves these empty/disabled; distributions can wire their
+  // own local backend without writing installation-specific values to SQLite.
+  vectorDefaults: z.object({
+    enabled: z.boolean().default(false),
+    baseUrl: z.string().default(""),
+    apiKey: z.string().default(""),
+    model: z.string().default("")
+  }).default({}),
+
   // Local ONNX embedder (transformers.js / onnxruntime).
   localEmbedModel: z.string().default("Xenova/bge-small-zh-v1.5"),
   localEmbedDimension: z.natural().default(512),

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createStore } from "../src/store.js";
 import { createService } from "../src/service.js";
 import { createSummarizer, parseSummaryJson } from "../src/summarize.js";
+import { createActivityTracker } from "../src/activity.js";
 
 function setup(over = {}, opts = {}) {
   const store = createStore(":memory:");
@@ -35,7 +36,7 @@ function setup(over = {}, opts = {}) {
     }
   };
   const config = { autoSummarize: true, ...over };
-  const summarizer = createSummarizer(ctx, service, config);
+  const summarizer = createSummarizer(ctx, service, config, opts.activity);
   return { store, service, events, calls, summarizer };
 }
 
@@ -83,6 +84,34 @@ test("turn/end event triggers summarization and stores entries", async () => {
   const all = store.all();
   assert.ok(all.some((m) => m.type === "decision"));
   assert.ok(all.some((m) => m.type === "preference"));
+});
+
+test("distillation activity covers the LLM call and clears on completion", async () => {
+  const activity = createActivityTracker();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const { events } = setup({}, {
+    activity,
+    stream() {
+      return (async function* () {
+        await gate;
+        yield { type: "block-start", block: { type: "text" } };
+        yield { type: "text-delta", delta: "[]" };
+        yield { type: "finish", kind: "ok" };
+      })();
+    }
+  });
+  const handler = events.find((e) => e.name === "session/event").fn;
+  const session = {
+    id: "activity-session",
+    requestHeader: () => ({ config: { provider: "moe4all", model: "chat" } }),
+    events: [userMessage("记住这一轮"), { seq: 2, type: "turn/end" }]
+  };
+  const running = handler(session, { seq: 2, type: "turn/end" });
+  assert.deepEqual(activity.snapshot().sessions, ["activity-session"]);
+  release();
+  await running;
+  assert.equal(activity.snapshot().active, false);
 });
 
 test("skips summarization for events other than turn/end", async () => {
