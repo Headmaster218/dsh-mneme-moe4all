@@ -114,6 +114,38 @@ test("distillation activity covers the LLM call and clears on completion", async
   assert.equal(activity.snapshot().active, false);
 });
 
+test("legacy distillation activity cancels the live LLM call without storing", async () => {
+  const activity = createActivityTracker();
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const { events, store } = setup({ distillRateLimitIntervalMs: 0 }, {
+    activity,
+    stream(options) {
+      return (async function* () {
+        markStarted();
+        await new Promise((resolve, reject) => {
+          const fail = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          if (options.signal.aborted) fail();
+          else options.signal.addEventListener("abort", fail, { once: true });
+        });
+      })();
+    }
+  });
+  const handler = events.find((e) => e.name === "session/event").fn;
+  const session = {
+    id: "cancel-legacy",
+    requestHeader: () => ({ config: { provider: "moe4all", model: "chat" } }),
+    events: [userMessage("不要记住这一轮"), { seq: 2, type: "turn/end" }]
+  };
+
+  const running = handler(session, { seq: 2, type: "turn/end" });
+  await started;
+  assert.equal(activity.cancel(session.id), 1);
+  await running;
+  assert.equal(activity.snapshot().active, false);
+  assert.equal(store.count(), 0);
+});
+
 test("skips summarization for events other than turn/end", async () => {
   const { events, store, calls } = setup();
   const handler = events.find((e) => e.name === "session/event").fn;

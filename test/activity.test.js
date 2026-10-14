@@ -30,3 +30,21 @@ test("activity tracker spans queued work and clears each session exactly once", 
     revision: 6
   });
 });
+
+test("activity tracker cancels every task in one session exactly once", () => {
+  const activity = createActivityTracker();
+  const cancelled = [];
+  const endA1 = activity.begin("a", () => cancelled.push("a1"));
+  const endA2 = activity.begin("a", () => cancelled.push("a2"));
+  const endB = activity.begin("b", () => cancelled.push("b"));
+
+  assert.equal(activity.cancel("a"), 2);
+  assert.deepEqual(cancelled, ["a1", "a2"]);
+  assert.equal(activity.cancel("a"), 0, "repeated cancellation must be idempotent");
+  assert.deepEqual(activity.snapshot().sessions, ["a", "b"]);
+
+  endA1();
+  endA2();
+  endB();
+  assert.equal(activity.snapshot().active, false);
+});

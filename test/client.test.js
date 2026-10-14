@@ -46,6 +46,9 @@ test("distillation status is session-scoped and driven by the activity endpoint"
   assert.ok(clientSource.includes('apiFetch("/api/dsh-mneme/activity")'));
   assert.ok(clientSource.includes('body.sessions.includes(sessionId)'));
   assert.ok(clientSource.includes('memory.activity.distilling'));
+  assert.ok(clientSource.includes('memory.activity.cancel'));
+  assert.ok(clientSource.includes('method: "POST"'));
+  assert.ok(clientSource.includes('JSON.stringify({ sessionId })'));
 });
 
 // The tab era is over: the in-conversation memory tab fought the floating

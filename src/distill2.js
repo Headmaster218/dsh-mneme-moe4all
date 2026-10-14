@@ -214,9 +214,11 @@ function toProtocolChunk(chunk) {
 }
 
 async function streamOnce(ctx, options, signal, audit, collect, onStreamError) {
+  throwIfAborted(signal);
   const assembler = new BlockAssembler();
   let text = "";
   for await (const chunk of ctx.llm.stream(options)) {
+    throwIfAborted(signal);
     if (STREAM_CHUNK_TYPES.has(chunk.type)) assembler.push(toProtocolChunk(chunk));
     if (chunk.type === "text-delta") text += chunk.text ?? chunk.delta ?? "";
     if (chunk.type === "usage" && audit) {
@@ -242,21 +244,49 @@ async function streamOnce(ctx, options, signal, audit, collect, onStreamError) {
 
 // 全局串行：同一时刻只有一轮蒸馏在跑（跨 session 也串行），一次调用进 GPU 队列。
 let queueTail = Promise.resolve();
-function enqueue(task) {
-  const next = queueTail.then(task, task);
-  queueTail = next.catch(() => {});
-  return next;
+function abortError() {
+  return Object.assign(new Error("distillation cancelled"), { name: "AbortError" });
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw abortError();
+}
+
+function observeAbort(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => { signal.removeEventListener("abort", onAbort); resolve(value); },
+      (error) => { signal.removeEventListener("abort", onAbort); reject(error); }
+    );
+  });
+}
+
+function enqueue(task, signal) {
+  const scheduled = queueTail.then(async () => {
+    throwIfAborted(signal);
+    return task();
+  });
+  queueTail = scheduled.catch(() => {});
+  return observeAbort(scheduled, signal);
 }
 
 export function createSummarizer(ctx, service, config, activity = null) {
   if (!config.autoSummarize) return { dispose: () => {} };
   let disposed = false;
-  let inFlightSession = null;
+  const inFlight = new Map();
   let pendingRetries = []; // 失败轮次的转录缓冲（上限 3，成功后清空）
   let pendingSessionId = null;
 
-  async function distillOnce(session, transcript) {
+  async function distillOnce(session, transcript, signal) {
     if (disposed) return;
+    throwIfAborted(signal);
     const header = session.requestHeader?.()?.config;
     const route = (config.summarizeProvider && config.summarizeModel)
       ? { provider: config.summarizeProvider, model: config.summarizeModel }
@@ -267,6 +297,7 @@ export function createSummarizer(ctx, service, config, activity = null) {
 
     const topK = Number.isInteger(config.distillInjectTopK) ? config.distillInjectTopK : 10;
     const { picked: injected } = await pickInjection(service, transcript.userText, topK);
+    throwIfAborted(signal);
     const retryPrefix = pendingSessionId === session.id && pendingRetries.length
       ? `【此前有 ${pendingRetries.length} 轮处理失败，转录一并纳入】\n${pendingRetries.join("\n\n……\n\n")}\n\n【本轮对话】\n`
       : "";
@@ -285,13 +316,14 @@ export function createSummarizer(ctx, service, config, activity = null) {
         { role: "system", content: [{ type: "text", text: SYSTEM_PROMPT }] },
         createUserMessage({ content: [{ type: "text", text: `# 既有相关记忆\n${formatInjected(injected)}\n\n# 本轮对话转录\n${userText}` }] })
       ],
-      signal: undefined
+      signal
     };
 
     // 思考档位封顶（distillReasoningEffort，默认 none = 完全不干预）。档位是否
     // 被这个模型接受由 resolveDreamEffort 问 harness 决定；provider 在流里拒收
     // 时 withEffortFallback 会去掉字段重试一次——与 dream3 走同一套安全机制。
     const effort = await resolveDreamEffort(ctx, route, config.distillReasoningEffort, ctx.logger);
+    throwIfAborted(signal);
     let streamFailure = "";
     let text = null;
     const attempt = (withEffort) => {
@@ -301,7 +333,7 @@ export function createSummarizer(ctx, service, config, activity = null) {
       return streamOnce(
         ctx,
         { ...options, ...(withEffort && effort ? { reasoningEffort: effort } : {}) },
-        null,
+        signal,
         audit,
         (t) => { text = t; },
         (reason) => { streamFailure = describeStreamFailure(reason); }
@@ -310,7 +342,12 @@ export function createSummarizer(ctx, service, config, activity = null) {
 
     try {
       await withEffortFallback(ctx, effort, () => attempt(true), () => attempt(false), () => streamFailure);
+      throwIfAborted(signal);
     } catch (error) {
+      if (error?.name === "AbortError" || signal?.aborted) {
+        if (audit) { audit.status = "skipped"; audit.errorMessage = "cancelled by user"; }
+        throw abortError();
+      }
       if (audit) { audit.status = "error"; audit.errorMessage = String(error?.message ?? error); }
       // 抛错路径同样进重试缓冲：本轮不丢，下轮成功时一并处理。
       if (pendingSessionId !== session.id) { pendingSessionId = session.id; pendingRetries = []; }
@@ -345,6 +382,7 @@ export function createSummarizer(ctx, service, config, activity = null) {
       ctx.logger?.warn?.("dsh-mneme distill2: 本轮蒸馏输出不可解析，已转入重试缓冲");
       return;
     }
+    throwIfAborted(signal);
     const outcome = applyTurnDecisions(decisions, service, ctx.logger, `session:${session.id}`);
     pendingRetries = [];
     pendingSessionId = null;
@@ -357,7 +395,7 @@ export function createSummarizer(ctx, service, config, activity = null) {
     if (disposed || event.type !== "turn/end") return;
     const reasonKind = event?.data?.reason?.kind;
     if (reasonKind === "aborted" || reasonKind === "error") return; // 半截轮次不提炼
-    if (inFlightSession === session.id) return;
+    if (inFlight.has(session.id)) return;
     const events = session.snapshotEvents?.() ?? session.events ?? [];
     const transcript = buildTurnTranscript(events, config.distillMaxChars ?? 24000);
     if (!transcript.userText.trim()) return; // 本轮没有人类发言：零成本跳过
@@ -365,15 +403,16 @@ export function createSummarizer(ctx, service, config, activity = null) {
     const hasRoute = (config.summarizeProvider && config.summarizeModel)
       || (header?.provider && header?.model);
     if (!hasRoute) return;
-    inFlightSession = session.id;
-    const endActivity = activity?.begin?.(session.id) ?? (() => {});
-    return enqueue(() => distillOnce(session, transcript)).catch((error) => {
+    const controller = new AbortController();
+    inFlight.set(session.id, controller);
+    const endActivity = activity?.begin?.(session.id, () => controller.abort()) ?? (() => {});
+    return enqueue(() => distillOnce(session, transcript, controller.signal), controller.signal).catch((error) => {
       if (!disposed && error?.name !== "AbortError") {
         ctx.logger?.warn?.(`dsh-mneme distill2: summarization failed: ${String(error?.message ?? error)}`);
       }
     }).finally(() => {
       endActivity();
-      inFlightSession = null;
+      inFlight.delete(session.id);
     });
   });
 
@@ -381,6 +420,8 @@ export function createSummarizer(ctx, service, config, activity = null) {
     dispose() {
       disposed = true;
       unsubscribe?.();
+      for (const controller of inFlight.values()) controller.abort();
+      inFlight.clear();
     }
   };
 }
