@@ -1,0 +1,18 @@
+{
+  "package": "dsh-mneme-moe4all",
+  "clientRequires": [
+    "react",
+    "@deepseek-ai/dsh-client-ui-primitives",
+    "react-dom"
+  ],
+  "syncCheck": "scripts/check-sync.js",
+  "tests": [
+    {
+      "kind": "node-test",
+      "directory": "test",
+      "extensions": [
+        ".test.js"
+      ]
+    }
+  ]
+}

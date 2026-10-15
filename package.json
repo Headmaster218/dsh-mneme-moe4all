@@ -80,7 +80,12 @@
     "test": "node --test test/*.test.js",
     "test:coverage": "c8 node --test test/*.test.js",
     "e2e": "node scripts/e2e-dsh.js",
-    "stress": "node scripts/stress-dsh.js"
+    "stress": "node scripts/stress-dsh.js",
+    "ci:check": "node --experimental-vm-modules ci/plugin-ci.mjs check",
+    "ci:test": "node ci/plugin-ci.mjs test",
+    "ci:contract": "node ci/plugin-ci.mjs test-contract",
+    "release:build": "node --experimental-vm-modules ci/plugin-ci.mjs pack",
+    "release:verify": "node ci/plugin-ci.mjs verify-release"
   },
   "c8": {
     "reporter": [
@@ -103,5 +108,6 @@
   "allowScripts": {
     "onnxruntime-node@1.24.3": true,
     "sharp@0.34.5": true
-  }
+  },
+  "packageManager": "npm@10.9.2"
 }
