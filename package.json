@@ -1,7 +1,7 @@
 {
   "name": "dsh-mneme-moe4all",
   "description": "MoE4All edition of the Mneme cross-session memory plugin for DeepSeek Harness",
-  "version": "0.7.29-moe4all.1",
+  "version": "0.7.29-moe4all.2",
   "license": "MIT",
   "repository": {
     "type": "git",
